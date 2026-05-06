@@ -1,0 +1,25 @@
+# Secrets — never commit these
+.env
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+
+# Generated reports
+weather_report_*.html
+weather_report_*.png
+preview_*.html
+
+# Logs
+logs/
+
+# IDE / Claude Code
+.claude/
+
+# OS
+.DS_Store
+Thumbs.db

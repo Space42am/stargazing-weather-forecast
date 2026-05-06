@@ -1,0 +1,5 @@
+requests
+astral
+python-dateutil
+python-dotenv
+playwright
