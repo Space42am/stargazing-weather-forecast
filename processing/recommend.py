@@ -34,7 +34,7 @@ CLOUD_LAYER_WEIGHTS: Dict[str, float] = {
     "high": 0.10,
 }
 
-WIND_THRESHOLD: float = 10.0  # m/s — above this the night is vetoed as "Windy"
+WIND_THRESHOLD: float = 4.0  # m/s — above this the night is vetoed as "Windy"
 
 
 # ---------------------------------------------------------------------------
