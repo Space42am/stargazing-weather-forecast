@@ -14,6 +14,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from config import LOCATIONS
 from delivery.slack_file import SlackFileUploadError, upload_png_report
+from processing.schedule import is_in_notification_window
 from fetch.weather_api import WeatherFetchError, fetch_location_forecast
 from formatting.html_formatter import render_html, save_html, screenshot_html
 from processing.filter import build_location_report
@@ -76,12 +77,23 @@ def main() -> int:
         logger.error("No locations loaded from Google Sheet. Please check sheet permissions and try again.")
         return 1
 
-    logger.info(f"Loaded {len(LOCATIONS)} locations from Google Sheets")
-    for loc in LOCATIONS[:3]:  # Log first 3 locations as examples
-        display_name = loc.get('display_name', loc['name'])
-        logger.info(f"  - {display_name} ({loc['lat']:.3f}, {loc['lon']:.3f})")
+    # Filter to locations whose preferred visit window includes this week
+    active_locations = [
+        loc for loc in LOCATIONS
+        if is_in_notification_window(loc.get("preferred_period", ""))
+    ]
+    logger.info(
+        "%d/%d location(s) active for today's report",
+        len(active_locations), len(LOCATIONS),
+    )
+    for loc in active_locations:
+        logger.info("  - %s (preferred: %s)", loc["name"], loc.get("preferred_period", "—"))
 
-    reports, api_metadata = build_all_reports(LOCATIONS)
+    if not active_locations:
+        logger.info("No locations in notification window today — nothing to send.")
+        return 0
+
+    reports, api_metadata = build_all_reports(active_locations)
 
     ranked = rank_nights(reports)
     if ranked:
