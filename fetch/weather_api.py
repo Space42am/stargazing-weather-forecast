@@ -58,15 +58,17 @@ def fetch_location_forecast(
     models = models or WEATHER_MODELS
 
     params = {
-        "latitude":      lat,
-        "longitude":     lon,
-        "hourly":        ",".join(variables),
-        "models":        ",".join(models.values()),
-        "forecast_days": forecast_days,
+        "latitude":        lat,
+        "longitude":       lon,
+        "hourly":          ",".join(variables),
+        "models":          ",".join(models.values()),
+        "forecast_days":   forecast_days,
         # `auto` makes Open-Meteo pick the location's timezone and emit
         # ISO timestamps in local time. That keeps "date" / "time" in the
         # final report aligned with the observer, not UTC.
-        "timezone":      "auto",
+        "timezone":        "auto",
+        # Default unit for windspeed_10m is km/h — request m/s explicitly.
+        "wind_speed_unit": "ms",
     }
 
     try:

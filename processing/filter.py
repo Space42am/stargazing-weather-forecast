@@ -142,7 +142,6 @@ def build_location_report(
 
         date_key = local_dt.strftime("%Y-%m-%d")
 
-        # For each day, find the first sunset hour and include next hours from same day only
         if date_key not in days:
             days[date_key] = []
 
@@ -151,34 +150,30 @@ def build_location_report(
         is_evening_hour = 18 <= hour <= 23
 
         if not days[date_key] and altitude <= threshold_deg and is_evening_hour:
-            # This is the first evening sunset hour - include it and next hours from same day only
+            # First qualifying evening hour — include it and the next 3 from the same day
             sunset_date = local_dt.date()
-            for j in range(4):  # Include this hour + next 3
+            for j in range(4):
                 if i + j >= len(times):
                     break
                 try:
                     future_naive_dt = date_parser.isoparse(times[i + j])
                     future_dt = future_naive_dt.replace(tzinfo=tz) if future_naive_dt.tzinfo is None else future_naive_dt
-
-                    # Only include hours from the same day as sunset
-                    if future_dt.date() != sunset_date:
-                        break
-
-                    future_altitude = get_sun_altitude(lat, lon, future_dt)
-
-                    models_block = _build_models_block(hourly, i + j)
-                    if models_block:  # Only include if we have model data
-                        days[date_key].append({
-                            "time":         future_dt.strftime("%H:%M"),
-                            "sun_altitude": round(future_altitude, 2),
-                            "models":       models_block,
-                        })
                 except (ValueError, TypeError):
                     continue
-            # Skip to next day after including sunset hours
+
+                if future_dt.date() != sunset_date:
+                    break
+
+                future_altitude = get_sun_altitude(lat, lon, future_dt)
+                models_block = _build_models_block(hourly, i + j)
+                if models_block:
+                    days[date_key].append({
+                        "time":         future_dt.strftime("%H:%M"),
+                        "sun_altitude": round(future_altitude, 2),
+                        "models":       models_block,
+                    })
             continue
 
-        # If we've already processed this day's sunset hours, skip
         if days[date_key]:
             continue
 
