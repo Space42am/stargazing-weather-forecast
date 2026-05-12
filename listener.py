@@ -20,9 +20,11 @@ from slack_bolt.adapter.socket_mode import SocketModeHandler
 from config import LOCATIONS, SLACK_APP_TOKEN, SLACK_BOT_TOKEN
 from delivery.slack_file import SlackFileUploadError, upload_png_report
 from fetch.weather_api import WeatherFetchError, fetch_location_forecast
+from fetch.windy_screenshot import collect_windy_links
 from formatting.html_formatter import render_html, save_html, screenshot_html
 from processing.filter import build_location_report
 from processing.recommend import format_slack_recommendation, rank_nights
+from processing.schedule import is_in_notification_window
 
 logging.basicConfig(
     level=logging.INFO,
@@ -37,8 +39,14 @@ def _run_pipeline(channel_id: str) -> None:
     """Full fetch → render → deliver pipeline, posting into *channel_id*."""
     logger.info("Pipeline triggered for channel %s", channel_id)
 
+    active_locations = [
+        loc for loc in LOCATIONS
+        if is_in_notification_window(loc.get("preferred_period", ""))
+    ]
+    logger.info("%d/%d location(s) active", len(active_locations), len(LOCATIONS))
+
     reports: list = []
-    for loc in LOCATIONS:
+    for loc in active_locations:
         name, lat, lon = loc["name"], loc["lat"], loc["lon"]
         try:
             payload = fetch_location_forecast(lat, lon)
@@ -48,8 +56,9 @@ def _run_pipeline(channel_id: str) -> None:
             logger.error("Skipping %s: %s", name, exc)
             reports.append({"location": name, "days": [], "_error": str(exc)})
 
-    ranked   = rank_nights(reports)
-    html_str = render_html(reports, ranked_nights=ranked)
+    ranked      = rank_nights(reports)
+    windy_links = collect_windy_links(ranked, active_locations)
+    html_str    = render_html(reports, ranked_nights=ranked)
 
     project_dir = os.path.dirname(__file__)
     for old in glob.glob(os.path.join(project_dir, "weather_report_*.html")):
@@ -61,7 +70,7 @@ def _run_pipeline(channel_id: str) -> None:
     rec_text = format_slack_recommendation(reports)
 
     try:
-        upload_png_report(png, channel_id=channel_id, message_text=rec_text or None)
+        upload_png_report(png, channel_id=channel_id, message_text=rec_text or None, windy_links=windy_links)
         logger.info("Results posted to channel %s", channel_id)
     except SlackFileUploadError as exc:
         logger.error("Delivery failed: %s", exc)

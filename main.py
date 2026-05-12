@@ -14,6 +14,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from config import LOCATIONS
 from delivery.slack_file import SlackFileUploadError, upload_png_report
+from fetch.windy_screenshot import collect_windy_links
 from processing.schedule import is_in_notification_window
 from fetch.weather_api import WeatherFetchError, fetch_location_forecast
 from formatting.html_formatter import render_html, save_html, screenshot_html
@@ -102,6 +103,8 @@ def main() -> int:
                     best["location"], best["date"],
                     best["cloud"], best["wind"], best["label"])
 
+    windy_links = collect_windy_links(ranked, active_locations)
+
     html = render_html(reports, header=header, ranked_nights=ranked)
 
     project_dir = os.path.dirname(__file__)
@@ -123,7 +126,7 @@ def main() -> int:
     rec_text = format_slack_recommendation(reports)
 
     try:
-        upload_png_report(png, title=header, message_text=rec_text or None)
+        upload_png_report(png, title=header, message_text=rec_text or None, windy_links=windy_links)
     except SlackFileUploadError as exc:
         logger.error("Slack PNG upload failed: %s", exc)
         return 1

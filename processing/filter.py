@@ -179,9 +179,10 @@ def build_location_report(
 
     return {
         "location": location_name,
+        "timezone": str(tz),
         "days": [
             {"date": date_key, "entries": entries}
             for date_key, entries in days.items()
-            if entries  # Only include days with entries
+            if entries
         ],
     }

@@ -9,11 +9,9 @@ Flow (Slack's recommended three-step upload):
 
 import logging
 from datetime import datetime
-from typing import Optional
+from typing import List, Optional, Tuple
 
 import requests
-
-import base64
 
 from config import IMGBB_API_KEY, SLACK_BOT_TOKEN, SLACK_CHANNEL_ID, SLACK_TIMEOUT_SECONDS
 
@@ -179,6 +177,7 @@ def upload_png_report(
     bot_token: Optional[str] = None,
     title: Optional[str] = None,
     message_text: Optional[str] = None,
+    windy_links: Optional[List[Tuple[str, str]]] = None,
 ) -> None:
     """
     Post the weather PNG to Slack.
@@ -209,6 +208,12 @@ def upload_png_report(
         blocks.append({"type": "section", "text": {"type": "mrkdwn", "text": message_text}})
     if image_url:
         blocks.append({"type": "image", "image_url": image_url, "alt_text": display})
+
+    if windy_links:
+        lines = [":satellite: *Cloud cover on Windy:*"]
+        for link_title, url in windy_links:
+            lines.append(f"  <{url}|{link_title}>")
+        blocks.append({"type": "section", "text": {"type": "mrkdwn", "text": "\n".join(lines)}})
 
     fallback_text = message_text or display
     r1 = requests.post(
