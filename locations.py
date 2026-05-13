@@ -5,6 +5,7 @@ Fetches registered locations from a Google Sheet and geocodes them to coordinate
 """
 
 import csv
+import math
 import time
 import requests
 from typing import List, Dict, Any, Optional
@@ -170,6 +171,29 @@ def fetch_locations_from_sheet() -> List[Dict[str, Any]]:
     return locations
 
 
+def _haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    R = 6371
+    dlat = math.radians(lat2 - lat1)
+    dlon = math.radians(lon2 - lon1)
+    a = math.sin(dlat / 2) ** 2 + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon / 2) ** 2
+    return R * 2 * math.asin(math.sqrt(a))
+
+
+def _deduplicate_nearby(locations: List[Dict[str, Any]], radius_km: float = 20) -> List[Dict[str, Any]]:
+    kept: List[Dict[str, Any]] = []
+    for loc in locations:
+        close_to = next(
+            (k for k in kept if _haversine_km(loc["lat"], loc["lon"], k["lat"], k["lon"]) < radius_km),
+            None,
+        )
+        if close_to:
+            dist = _haversine_km(loc["lat"], loc["lon"], close_to["lat"], close_to["lon"])
+            print(f"Dropped '{loc['name']}' ({dist:.1f} km from '{close_to['name']}')")
+        else:
+            kept.append(loc)
+    return kept
+
+
 def get_locations() -> List[Dict[str, Any]]:
     """
     Get locations from Google Sheets.
@@ -180,6 +204,7 @@ def get_locations() -> List[Dict[str, Any]]:
     try:
         locations = fetch_locations_from_sheet()
         if locations:
+            locations = _deduplicate_nearby(locations)
             print(f"Successfully loaded {len(locations)} locations from Google Sheet")
             return locations
         else:
