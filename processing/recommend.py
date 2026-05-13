@@ -149,6 +149,7 @@ def rank_nights(location_reports: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
 def format_slack_recommendation(
     location_reports: List[Dict[str, Any]],
     dropped: Optional[List[Dict[str, Any]]] = None,
+    out_of_season: Optional[List[Dict[str, Any]]] = None,
 ) -> str:
     """
     For every night in the forecast window, list ALL locations ranked best→worst.
@@ -179,6 +180,12 @@ def format_slack_recommendation(
             for d in dropped
         )
         lines.append(f":scissors: *Skipped (within 20 km of another):* {dropped_str}")
+    if out_of_season:
+        season_str = ", ".join(
+            f"{loc['name']} (preferred: {loc.get('preferred_period', '?')})"
+            for loc in out_of_season
+        )
+        lines.append(f":calendar: *Out of season:* {season_str}")
     lines.append("")
     for i, d in enumerate(sorted(by_date)):
         tonight = " _(tonight)_" if i == 0 else ""

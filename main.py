@@ -84,6 +84,11 @@ def main() -> int:
         loc for loc in LOCATIONS
         if is_in_notification_window(loc.get("preferred_period", ""))
     ]
+    out_of_season = [
+        loc for loc in LOCATIONS
+        if loc.get("preferred_period", "").strip()
+        and not is_in_notification_window(loc.get("preferred_period", ""))
+    ]
     logger.info(
         "%d/%d location(s) active for today's report",
         len(active_locations), len(LOCATIONS),
@@ -124,7 +129,7 @@ def main() -> int:
     png = screenshot_html(html)
     logger.info("Screenshot captured (%d KB)", len(png) // 1024)
 
-    rec_text = format_slack_recommendation(reports, dropped=DROPPED_LOCATIONS)
+    rec_text = format_slack_recommendation(reports, dropped=DROPPED_LOCATIONS, out_of_season=out_of_season)
 
     try:
         upload_png_report(png, title=header, message_text=rec_text or None, windy_links=windy_links)

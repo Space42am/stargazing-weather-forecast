@@ -44,6 +44,11 @@ def _run_pipeline(channel_id: str) -> None:
         loc for loc in LOCATIONS
         if is_in_notification_window(loc.get("preferred_period", ""))
     ]
+    out_of_season = [
+        loc for loc in LOCATIONS
+        if loc.get("preferred_period", "").strip()
+        and not is_in_notification_window(loc.get("preferred_period", ""))
+    ]
     logger.info("%d/%d location(s) active", len(active_locations), len(LOCATIONS))
 
     reports: list = []
@@ -68,7 +73,7 @@ def _run_pipeline(channel_id: str) -> None:
     save_html(reports, html_path)
 
     png      = screenshot_html(html_str)
-    rec_text = format_slack_recommendation(reports, dropped=DROPPED_LOCATIONS)
+    rec_text = format_slack_recommendation(reports, dropped=DROPPED_LOCATIONS, out_of_season=out_of_season)
 
     try:
         upload_png_report(png, channel_id=channel_id, message_text=rec_text or None, windy_links=windy_links)
