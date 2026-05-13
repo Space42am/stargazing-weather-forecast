@@ -2,7 +2,6 @@
 Generate Windy.com cloud-cover links for the best-ranked night per day.
 """
 
-from datetime import datetime, timezone
 from typing import Any, Dict, List, Tuple
 
 _GOOD_LABELS = {"Excellent", "Good"}
@@ -32,9 +31,8 @@ def collect_windy_links(
             continue
 
         lat, lon = loc_cfg["lat"], loc_cfg["lon"]
-        night_dt = datetime.strptime(night["date"], "%Y-%m-%d").replace(hour=21, tzinfo=timezone.utc)
-        timestamp_ms = int(night_dt.timestamp() * 1000)
-        url   = f"https://www.windy.com/-Clouds-clouds?clouds,{lat:.3f},{lon:.3f},10,p:cities,i:{timestamp_ms}"
+        date_hour = f"{night['date']}-{night['hour']}"
+        url   = f"https://www.windy.com/-Clouds-clouds?clouds,{date_hour},{lat:.3f},{lon:.3f},10,i:pressure,p:cities"
         title = f"{night['location']} — {night['date']} ({night['label']}, cloud {night['cloud']:.0f}%)"
         links.append((title, url))
 

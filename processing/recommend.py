@@ -48,7 +48,7 @@ def _cloud_score(low: float, mid: float, high: float) -> float:
     return (lw["low"] * low + lw["mid"] * mid + lw["high"] * high) / total_w
 
 
-def _night_scores(day: Dict[str, Any]) -> Optional[Dict[str, Optional[float]]]:
+def _night_scores(day: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     """
     Return mean weighted cloud score, mean wind, and minimum temperature for the night.
     Each hour's cloud score is a model-weighted average (ECMWF trusted most).
@@ -59,6 +59,9 @@ def _night_scores(day: Dict[str, Any]) -> Optional[Dict[str, Optional[float]]]:
 
     # Collect per-model temperature series to find each model's night minimum
     model_temps: Dict[str, List[float]] = {}
+
+    best_hour: str = "21"
+    best_hour_cloud: float = float("inf")
 
     for entry in day.get("entries", []):
         models = entry.get("models") or {}
@@ -80,7 +83,11 @@ def _night_scores(day: Dict[str, Any]) -> Optional[Dict[str, Optional[float]]]:
                 model_temps.setdefault(model_name, []).append(float(temp))
 
         if w_sum:
-            cloud_vals.append(c_sum / w_sum)
+            score = c_sum / w_sum
+            cloud_vals.append(score)
+            if score < best_hour_cloud:
+                best_hour_cloud = score
+                best_hour = entry.get("time", "21:00").split(":")[0]
 
         # Wind: simple average across models
         for mdata in models.values():
@@ -99,6 +106,7 @@ def _night_scores(day: Dict[str, Any]) -> Optional[Dict[str, Optional[float]]]:
         "cloud":    round(sum(cloud_vals) / len(cloud_vals), 1),
         "wind":     round(sum(wind_vals)  / len(wind_vals),  1) if wind_vals else 0.0,
         "min_temp": min_temp,
+        "best_hour": best_hour,
     }
 
 
@@ -127,6 +135,7 @@ def rank_nights(location_reports: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
             ranked.append({
                 "location": loc,
                 "date":     day["date"],
+                "hour":     s["best_hour"],
                 "cloud":    s["cloud"],
                 "wind":     s["wind"],
                 "min_temp": s["min_temp"],
