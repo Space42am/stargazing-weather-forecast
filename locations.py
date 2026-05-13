@@ -179,7 +179,12 @@ def _haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     return R * 2 * math.asin(math.sqrt(a))
 
 
+DROPPED_LOCATIONS: List[Dict[str, Any]] = []
+
+
 def _deduplicate_nearby(locations: List[Dict[str, Any]], radius_km: float = 20) -> List[Dict[str, Any]]:
+    global DROPPED_LOCATIONS
+    DROPPED_LOCATIONS = []
     kept: List[Dict[str, Any]] = []
     for loc in locations:
         close_to = next(
@@ -189,6 +194,7 @@ def _deduplicate_nearby(locations: List[Dict[str, Any]], radius_km: float = 20) 
         if close_to:
             dist = _haversine_km(loc["lat"], loc["lon"], close_to["lat"], close_to["lon"])
             print(f"Dropped '{loc['name']}' ({dist:.1f} km from '{close_to['name']}')")
+            DROPPED_LOCATIONS.append({"name": loc["name"], "close_to": close_to["name"], "dist_km": dist})
         else:
             kept.append(loc)
     return kept

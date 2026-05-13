@@ -18,6 +18,7 @@ from slack_bolt import App
 from slack_bolt.adapter.socket_mode import SocketModeHandler
 
 from config import LOCATIONS, SLACK_APP_TOKEN, SLACK_BOT_TOKEN
+from locations import DROPPED_LOCATIONS
 from delivery.slack_file import SlackFileUploadError, upload_png_report
 from fetch.weather_api import WeatherFetchError, fetch_location_forecast
 from fetch.windy_screenshot import collect_windy_links
@@ -67,7 +68,7 @@ def _run_pipeline(channel_id: str) -> None:
     save_html(reports, html_path)
 
     png      = screenshot_html(html_str)
-    rec_text = format_slack_recommendation(reports)
+    rec_text = format_slack_recommendation(reports, dropped=DROPPED_LOCATIONS)
 
     try:
         upload_png_report(png, channel_id=channel_id, message_text=rec_text or None, windy_links=windy_links)

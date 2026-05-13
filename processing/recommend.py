@@ -146,7 +146,10 @@ def rank_nights(location_reports: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     return ranked
 
 
-def format_slack_recommendation(location_reports: List[Dict[str, Any]]) -> str:
+def format_slack_recommendation(
+    location_reports: List[Dict[str, Any]],
+    dropped: Optional[List[Dict[str, Any]]] = None,
+) -> str:
     """
     For every night in the forecast window, list ALL locations ranked best→worst.
     Output is in chronological date order so it reads as a trip planner.
@@ -167,7 +170,16 @@ def format_slack_recommendation(location_reports: List[Dict[str, Any]]) -> str:
         "Windy":     ":wind_blowing_face:",
     }
 
-    lines = [":telescope: *Stargazing forecast — all locations, all nights*\n"]
+    active_names = ", ".join(r["location"] for r in location_reports)
+    lines = [f":telescope: *Stargazing forecast — {len(location_reports)} location(s) checked*"]
+    lines.append(f":round_pushpin: *Active:* {active_names}")
+    if dropped:
+        dropped_str = ", ".join(
+            f"{d['name']} → {d['close_to']} ({d['dist_km']:.1f} km)"
+            for d in dropped
+        )
+        lines.append(f":scissors: *Skipped (within 20 km of another):* {dropped_str}")
+    lines.append("")
     for i, d in enumerate(sorted(by_date)):
         tonight = " _(tonight)_" if i == 0 else ""
         lines.append(f"*{d}*{tonight}")

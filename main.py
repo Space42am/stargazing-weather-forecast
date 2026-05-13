@@ -13,6 +13,7 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 
 from config import LOCATIONS
+from locations import DROPPED_LOCATIONS
 from delivery.slack_file import SlackFileUploadError, upload_png_report
 from fetch.windy_screenshot import collect_windy_links
 from processing.schedule import is_in_notification_window
@@ -123,7 +124,7 @@ def main() -> int:
     png = screenshot_html(html)
     logger.info("Screenshot captured (%d KB)", len(png) // 1024)
 
-    rec_text = format_slack_recommendation(reports)
+    rec_text = format_slack_recommendation(reports, dropped=DROPPED_LOCATIONS)
 
     try:
         upload_png_report(png, title=header, message_text=rec_text or None, windy_links=windy_links)
