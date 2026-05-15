@@ -392,11 +392,15 @@ def screenshot_html(html: str, width: int = 1300) -> bytes:
 
     try:
         with sync_playwright() as p:
-            browser = p.chromium.launch()
+            browser = p.chromium.launch(args=[
+                "--no-sandbox",
+                "--disable-gpu",
+                "--disable-dev-shm-usage",
+            ])
             page = browser.new_page(viewport={"width": width, "height": 900})
             page.goto(f"file:///{tmp.replace(os.sep, '/')}")
-            page.wait_for_load_state("networkidle")
-            page.wait_for_timeout(800)   # let chart animations settle
+            page.wait_for_load_state("networkidle", timeout=20_000)
+            page.wait_for_timeout(800)
             png = page.screenshot(full_page=True)
             browser.close()
     finally:
