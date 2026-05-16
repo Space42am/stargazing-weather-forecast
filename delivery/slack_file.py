@@ -172,7 +172,7 @@ def _upload_to_temp_host(png: bytes, filename: str) -> Optional[str]:
 
 
 def upload_png_report(
-    png: bytes,
+    png: Optional[bytes],
     channel_id: Optional[str] = None,
     bot_token: Optional[str] = None,
     title: Optional[str] = None,
@@ -200,7 +200,7 @@ def upload_png_report(
     headers  = {"Authorization": f"Bearer {token}"}
 
     # Step 1 — upload PNG to imgbb to get a public URL for the image block
-    image_url = _upload_to_temp_host(png, filename)
+    image_url = _upload_to_temp_host(png, filename) if png else None
 
     # Step 2 — post recommendation text + image block in one message
     blocks: list = []

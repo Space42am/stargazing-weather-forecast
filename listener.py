@@ -72,7 +72,11 @@ def _run_pipeline(channel_id: str) -> None:
     html_path = os.path.join(project_dir, f"weather_report_{datetime.now().strftime('%Y%m%d_%H%M')}.html")
     save_html(reports, html_path)
 
-    png      = screenshot_html(html_str)
+    png: bytes | None = None
+    try:
+        png = screenshot_html(html_str)
+    except Exception as exc:
+        logger.warning("Screenshot failed (%s) — will post text-only to Slack", exc)
     rec_text = format_slack_recommendation(reports, dropped=DROPPED_LOCATIONS, out_of_season=out_of_season)
 
     try:

@@ -126,8 +126,12 @@ def main() -> int:
     logger.info("HTML report saved → %s", html_path)
 
     logger.info("Rendering PNG screenshot…")
-    png = screenshot_html(html)
-    logger.info("Screenshot captured (%d KB)", len(png) // 1024)
+    png: Optional[bytes] = None
+    try:
+        png = screenshot_html(html)
+        logger.info("Screenshot captured (%d KB)", len(png) // 1024)
+    except Exception as exc:
+        logger.warning("Screenshot failed (%s) — will post text-only to Slack", exc)
 
     rec_text = format_slack_recommendation(reports, dropped=DROPPED_LOCATIONS, out_of_season=out_of_season)
 
