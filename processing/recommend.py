@@ -10,7 +10,9 @@ Tuning knobs at the top of this file:
   WIND_THRESHOLD      — m/s above which a night is vetoed as "Windy"
 """
 
+from datetime import datetime, timezone as dt_timezone
 from typing import Any, Dict, List, Optional
+from zoneinfo import ZoneInfo
 
 # ---------------------------------------------------------------------------
 # Tunable parameters
@@ -127,19 +129,29 @@ def rank_nights(location_reports: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     ranked = []
     for report in location_reports:
         loc = report.get("location", "?")
+        tz = ZoneInfo(report.get("timezone") or "UTC")
         for day in report.get("days", []):
             s = _night_scores(day)
             if s is None:
                 continue
             label = _label(s["cloud"] or 0.0, s["wind"] or 0.0)
+
+            # Convert best_hour (local) to UTC for the Windy URL
+            local_dt = datetime.strptime(
+                f"{day['date']} {s['best_hour']}:00", "%Y-%m-%d %H:%M"
+            ).replace(tzinfo=tz)
+            utc_dt = local_dt.astimezone(dt_timezone.utc)
+
             ranked.append({
-                "location": loc,
-                "date":     day["date"],
-                "hour":     s["best_hour"],
-                "cloud":    s["cloud"],
-                "wind":     s["wind"],
-                "min_temp": s["min_temp"],
-                "label":    label,
+                "location":   loc,
+                "date":       day["date"],
+                "hour":       s["best_hour"],
+                "windy_date": utc_dt.strftime("%Y-%m-%d"),
+                "windy_hour": utc_dt.strftime("%H"),
+                "cloud":      s["cloud"],
+                "wind":       s["wind"],
+                "min_temp":   s["min_temp"],
+                "label":      label,
             })
 
     ranked.sort(key=lambda x: (x["label"] == "Windy", x["cloud"]))

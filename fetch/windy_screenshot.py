@@ -31,7 +31,7 @@ def collect_windy_links(
             continue
 
         lat, lon = loc_cfg["lat"], loc_cfg["lon"]
-        date_hour = f"{night['date']}-{night['hour']}"
+        date_hour = f"{night['windy_date']}-{night['windy_hour']}"
         url   = f"https://www.windy.com/-Clouds-clouds?clouds,{date_hour},{lat:.3f},{lon:.3f},10,i:pressure,p:cities"
         title = f"{night['location']} — {night['date']} ({night['label']}, cloud {night['cloud']:.0f}%)"
         links.append((title, url))
