@@ -17,15 +17,34 @@ from dateutil import parser as date_parser
 logger = logging.getLogger(__name__)
 
 
+_ARMENIAN_MONTHS = {
+    # Armenian month names (genitive and nominative) → English.
+    # Codepoints verified against actual sheet data.
+    # May: Մ(544) ա(561) յ(575) ր(580) ի(56b) ս(57d) ի(56b)
+    'Մայրիսի': 'May',   # Մayrisii (genitive)
+    'Մայրիս':       'May',   # Мayris (nominative)
+    # June: հ(570) ո(578) ւ(582) ն(576) ի(56b) ս(57d) ի(56b)
+    'հունիսի': 'June',  # Хounisii (genitive)
+    'հունիս':       'June',  # Хounis (nominative)
+}
+
+
+def _normalize_armenian(text: str) -> str:
+    for arm, eng in _ARMENIAN_MONTHS.items():
+        text = text.replace(arm, eng)
+    return text
+
+
 def _extract_dates(text: str) -> List[date]:
-    # Split on range separators first, then try strict parse of each part.
-    # No fuzzy=True: text like "until May 22" or Armenian strings must return
-    # zero dates so those locations stay always-active.
-    parts = re.split(r"\s*[-–—]\s*|\s+to\s+", text.strip(), maxsplit=1)
+    # Split on range separators (dash variants, underscore, or " to "), then
+    # translate any Armenian month names and parse each part.
+    # No fuzzy=True: ambiguous text like "until May 22" must still return zero
+    # dates so those locations fall back to always-active.
+    parts = re.split(r"\s*[-–—_]\s*|\s+to\s+", text.strip(), maxsplit=1)
     result = []
     for part in parts:
         try:
-            result.append(date_parser.parse(part.strip(), dayfirst=False).date())
+            result.append(date_parser.parse(_normalize_armenian(part.strip()), dayfirst=False).date())
         except Exception:
             pass
     logger.debug("Extracted dates from %r: %s", text, result)
