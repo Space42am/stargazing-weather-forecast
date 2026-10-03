@@ -8,24 +8,14 @@ Run this process continuously (e.g. via Task Scheduler at startup):
     python listener.py
 """
 
-import glob
 import logging
-import os
 import threading
-from datetime import datetime
 
 from slack_bolt import App
 from slack_bolt.adapter.socket_mode import SocketModeHandler
 
-from config import LOCATIONS, SLACK_APP_TOKEN, SLACK_BOT_TOKEN
-from locations import DROPPED_LOCATIONS
-from delivery.slack_file import SlackFileUploadError, upload_png_report
-from fetch.weather_api import WeatherFetchError, fetch_location_forecast
-from fetch.windy_screenshot import collect_windy_links
-from formatting.html_formatter import render_html, save_html, screenshot_html
-from processing.filter import build_location_report
-from processing.recommend import format_slack_recommendation, rank_nights
-from processing.schedule import is_in_notification_window
+from config import SLACK_APP_TOKEN, SLACK_BOT_TOKEN
+from pipeline import execute_sheet_report
 
 logging.basicConfig(
     level=logging.INFO,
@@ -37,58 +27,27 @@ app = App(token=SLACK_BOT_TOKEN)
 
 
 def _run_pipeline(channel_id: str) -> None:
-    """Full fetch → render → deliver pipeline, posting into *channel_id*."""
-    logger.info("Pipeline triggered for channel %s", channel_id)
+    """Refresh Sheet inputs and post the report to a channel.
 
-    active_locations = [
-        loc for loc in LOCATIONS
-        if is_in_notification_window(loc.get("preferred_period", ""))
-    ]
-    out_of_season = [
-        loc for loc in LOCATIONS
-        if loc.get("preferred_period", "").strip()
-        and not is_in_notification_window(loc.get("preferred_period", ""))
-    ]
-    logger.info("%d/%d location(s) active", len(active_locations), len(LOCATIONS))
-
-    reports: list = []
-    for loc in active_locations:
-        name, lat, lon = loc["name"], loc["lat"], loc["lon"]
-        try:
-            payload = fetch_location_forecast(lat, lon)
-            reports.append(build_location_report(name, lat, lon, payload))
-            logger.info("%s: fetched", name)
-        except WeatherFetchError as exc:
-            logger.error("Skipping %s: %s", name, exc)
-            reports.append({"location": name, "days": [], "_error": str(exc)})
-
-    ranked      = rank_nights(reports)
-    windy_links = collect_windy_links(ranked, active_locations)
-    html_str    = render_html(reports, ranked_nights=ranked)
-
-    project_dir = os.path.dirname(__file__)
-    for old in glob.glob(os.path.join(project_dir, "weather_report_*.html")):
-        os.remove(old)
-    html_path = os.path.join(project_dir, f"weather_report_{datetime.now().strftime('%Y%m%d_%H%M')}.html")
-    save_html(reports, html_path)
-
-    png: bytes | None = None
-    try:
-        png = screenshot_html(html_str)
-    except Exception as exc:
-        logger.warning("Screenshot failed (%s) — will post text-only to Slack", exc)
-    rec_text = format_slack_recommendation(reports, dropped=DROPPED_LOCATIONS, out_of_season=out_of_season)
-
-    try:
-        upload_png_report(png, channel_id=channel_id, message_text=rec_text or None, windy_links=windy_links)
-        logger.info("Results posted to channel %s", channel_id)
-    except SlackFileUploadError as exc:
-        logger.error("Delivery failed: %s", exc)
-        raise
+    Parameters
+    ----------
+    channel_id : str
+        Slack channel where the slash command was invoked.
+    """
+    execute_sheet_report(channel_id=channel_id)
 
 
 @app.command("/predict_weather")
 def handle_weather(ack, say, command):
+    """Acknowledge the slash command and start its report in a thread.
+
+    Parameters
+    ----------
+    ack, say : callable
+        Slack acknowledgement and channel message callbacks.
+    command : dict
+        Slack slash-command payload containing the channel identifier.
+    """
     ack()  # must respond within 3 s — acknowledge first, then do the work
     say(":hourglass_flowing_sand: Fetching forecast, give me a moment…")
     channel_id = command["channel_id"]
@@ -100,6 +59,15 @@ def handle_weather(ack, say, command):
 
 
 def _safe_run(channel_id: str, say) -> None:
+    """Report pipeline errors to the invoking Slack channel.
+
+    Parameters
+    ----------
+    channel_id : str
+        Destination of the report.
+    say : callable
+        Slack callback used to report failures.
+    """
     try:
         _run_pipeline(channel_id)
     except Exception as exc:

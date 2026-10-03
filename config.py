@@ -7,28 +7,27 @@ where it makes sense (e.g. the Slack webhook URL).
 """
 
 import os
-from typing import List, Dict, Any
+from typing import Dict, List
 
 from dotenv import load_dotenv
 
 load_dotenv()  # loads .env from project root if present
 
-from locations import get_locations
-
-
 # --- Slack -------------------------------------------------------------------
 
 SLACK_WEBHOOK_URL: str = os.environ.get("SLACK_WEBHOOK_URL", "")
-SLACK_BOT_TOKEN: str   = os.environ.get("SLACK_BOT_TOKEN", "")
-SLACK_CHANNEL_ID: str  = os.environ.get("SLACK_CHANNEL_ID", "")
-SLACK_APP_TOKEN: str   = os.environ.get("SLACK_APP_TOKEN", "")
-IMGBB_API_KEY: str     = os.environ.get("IMGBB_API_KEY", "")
+SLACK_BOT_TOKEN: str = os.environ.get("SLACK_BOT_TOKEN", "")
+SLACK_CHANNEL_ID: str = os.environ.get("SLACK_CHANNEL_ID", "")
+SLACK_APP_TOKEN: str = os.environ.get("SLACK_APP_TOKEN", "")
+IMGBB_API_KEY: str = os.environ.get("IMGBB_API_KEY", "")
 
 
-# --- Locations ---------------------------------------------------------------
+# --- Sheet input -------------------------------------------------------------
 
-# Locations are dynamically loaded from Google Sheets
-LOCATIONS: List[Dict[str, Any]] = get_locations()
+WEATHER_SPREADSHEET_ID: str = os.environ.get(
+    "WEATHER_SPREADSHEET_ID", "1YtLyXxU3nPAdL5LDcTimX3uMh0AxC0IXsdNSTVB4Gig"
+)
+WEATHER_SHEET_GID: str = os.environ.get("WEATHER_SHEET_GID", "2107805094")
 
 
 # --- Forecast horizon --------------------------------------------------------
@@ -59,8 +58,8 @@ WEATHER_VARIABLES: List[str] = [
 # Maps human-friendly label -> Open-Meteo model id. The label is what
 # appears in the Slack output; the id is what we send on the wire.
 WEATHER_MODELS: Dict[str, str] = {
-    "GFS":   "gfs_seamless",
-    "ICON":  "icon_seamless",
+    "GFS": "gfs_seamless",
+    "ICON": "icon_seamless",
     "ECMWF": "ecmwf_ifs025",
 }
 

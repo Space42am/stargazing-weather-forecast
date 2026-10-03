@@ -24,3 +24,11 @@ CLAUDE.md
 # OS
 .DS_Store
 Thumbs.db
+
+# Persistent monitor state and test caches
+data/
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+.pytest_cache/
+.ruff_cache/

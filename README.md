@@ -9,7 +9,7 @@ Fetches multi-model forecasts, scores each night by cloud cover and wind, and de
 
 - Pulls observing locations dynamically from a Google Sheet, with date-based scheduling per location
 - Fetches forecasts from [Open-Meteo](https://open-meteo.com/) using three models: **ECMWF**, **ICON**, and **GFS**
-- Filters hours by sun altitude — only nighttime hours are included
+- Selects up to four evening hours using the configured sun-altitude threshold
 - Renders an interactive **Chart.js** HTML report with cloud cover, temperature, and wind charts per location
 - Screenshots the report to PNG and delivers it to a Slack channel
 - Scores each night using model-weighted cloud cover and wind, then posts per-day recommendations
@@ -124,16 +124,11 @@ Each location in the sheet can have an optional **preferred visit period** in co
 
 ## Scoring
 
-Each night is scored per location:
-
-| Factor | Weight |
-|---|---|
-| Cloud cover (weighted: low 60%, mid 30%, high 10%) | 85% |
-| Wind speed | 15% |
+Each night is ranked by model-weighted cloud cover (low clouds 60%, mid clouds 30%, high clouds 10%). Windy nights are placed after other nights, then locations are sorted by cloud score.
 
 Model trust (cloud prediction): **ECMWF 50% · ICON 30% · GFS 20%**
 
-Wind above **4 m/s** overrides the label to **Windy** regardless of cloud.
+Wind at or above **4 m/s** overrides the label to **Windy** regardless of cloud.
 
 | Label | Cloud score |
 |---|---|
@@ -150,3 +145,20 @@ Each morning the bot posts:
 - A **text recommendation** listing the best location for each night across the forecast window, with cloud %, wind speed, min temperature, and a rating
 - An **inline chart image** showing cloud cover (per model, per layer), temperature, and wind speed for each location
 - **Windy.com links** for each day with a Good or Excellent forecast, linking directly to the cloud cover view at that location
+
+## Oracle API and Marvin Monitoring
+
+The [implementation plan](docs/marvin-oracle-plan.md) describes the shared report pipeline and independent Sheet/Marvin monitor ownership.
+Follow [the Oracle deployment guide](docs/oracle-deployment.md) to run the always-on API with persistent state and HTTPS.
+Marvin can start, inspect, and stop its own monitors; the daily Sheet monitor is protected from API cancellation.
+The existing scripts and `/predict_weather` command remain available.
+
+Current forecast behavior uses a **+20° sun-altitude threshold**, chooses up to four evening hours, and sorts windy nights last before cloud cover.
+The Sheet supplies locations and visit windows; the program does not write forecasts back to it.
+
+Run local checks with Python 3.12 or newer:
+
+```bash
+pip install -r requirements-dev.txt
+python -m pytest
+```

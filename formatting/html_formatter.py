@@ -10,21 +10,61 @@ Requires a browser with internet access for the Chart.js CDN.
 
 import json
 from datetime import datetime
+from html import escape
 from typing import Any, Dict, List, Optional
 
 # Dark colour palette (Catppuccin Mocha-inspired)
 _MODEL_CLOUD_COLORS = {
-    "GFS":   {"low": "rgba(59,130,246,.85)",  "mid": "rgba(147,197,253,.85)",  "high": "rgba(219,234,254,.7)"},
-    "ICON":  {"low": "rgba(251,146,60,.85)",  "mid": "rgba(253,186,116,.85)",  "high": "rgba(254,215,170,.7)"},
-    "ECMWF": {"low": "rgba(74,222,128,.85)",  "mid": "rgba(134,239,172,.85)",  "high": "rgba(187,247,208,.7)"},
+    "GFS": {
+        "low": "rgba(59,130,246,.85)",
+        "mid": "rgba(147,197,253,.85)",
+        "high": "rgba(219,234,254,.7)",
+    },
+    "ICON": {
+        "low": "rgba(251,146,60,.85)",
+        "mid": "rgba(253,186,116,.85)",
+        "high": "rgba(254,215,170,.7)",
+    },
+    "ECMWF": {
+        "low": "rgba(74,222,128,.85)",
+        "mid": "rgba(134,239,172,.85)",
+        "high": "rgba(187,247,208,.7)",
+    },
 }
 _MODEL_LINE_COLORS = {
-    "GFS":   "#60a5fa",
-    "ICON":  "#fb923c",
+    "GFS": "#60a5fa",
+    "ICON": "#fb923c",
     "ECMWF": "#4ade80",
 }
-_FALLBACK_CLOUD = {"low": "rgba(180,180,180,.7)", "mid": "rgba(210,210,210,.7)", "high": "rgba(235,235,235,.5)"}
-_FALLBACK_LINE  = "#a6adc8"
+_FALLBACK_CLOUD = {
+    "low": "rgba(180,180,180,.7)",
+    "mid": "rgba(210,210,210,.7)",
+    "high": "rgba(235,235,235,.5)",
+}
+_FALLBACK_LINE = "#a6adc8"
+
+
+def _script_json(value: Any) -> str:
+    """Encode chart data safely inside an inline script element.
+
+    Parameters
+    ----------
+    value : object
+        JSON-serializable chart data.
+
+    Returns
+    -------
+    str
+        JSON with HTML delimiters and JavaScript separators escaped.
+    """
+    return (
+        json.dumps(value, ensure_ascii=False)
+        .replace("&", "\\u0026")
+        .replace("<", "\\u003c")
+        .replace(">", "\\u003e")
+        .replace("\u2028", "\\u2028")
+        .replace("\u2029", "\\u2029")
+    )
 
 
 def _build_datasets(location_report: Dict[str, Any]):
@@ -65,71 +105,85 @@ def _build_datasets(location_report: Dict[str, Any]):
                 (e.get("models", {}).get(model, {}) or {}).get(f"cloud_{layer}", 0) or 0
                 for e in flat
             ]
-            cloud_datasets.append({
-                "label":           f"{model} {layer}",
-                "data":            data,
-                "backgroundColor": colors[layer],
-                "categoryPercentage": 1.0,
-                "barPercentage":   0.85,
-            })
+            cloud_datasets.append(
+                {
+                    "label": f"{model} {layer}",
+                    "data": data,
+                    "backgroundColor": colors[layer],
+                    "categoryPercentage": 1.0,
+                    "barPercentage": 0.85,
+                }
+            )
 
     temp_datasets: List[Dict[str, Any]] = []
     wind_datasets: List[Dict[str, Any]] = []
     for model in all_models:
         color = _MODEL_LINE_COLORS.get(model, _FALLBACK_LINE)
-        temp_data = [
-            (e.get("models", {}).get(model, {}) or {}).get("temp")
-            for e in flat
-        ]
-        wind_data = [
-            (e.get("models", {}).get(model, {}) or {}).get("wind")
-            for e in flat
-        ]
-        temp_datasets.append({
-            "label":           f"{model}",
-            "data":            temp_data,
-            "borderColor":     color,
-            "backgroundColor": "transparent",
-            "tension":         0.35,
-            "yAxisID":         "yTemp",
-            "pointRadius":     5,
-            "pointHoverRadius": 7,
-        })
-        wind_datasets.append({
-            "label":           f"{model}",
-            "data":            wind_data,
-            "borderColor":     color,
-            "backgroundColor": "transparent",
-            "tension":         0.35,
-            "borderDash":      [6, 3],
-            "yAxisID":         "yWind",
-            "pointRadius":     4,
-            "pointStyle":      "rectRot",
-            "pointHoverRadius": 6,
-        })
+        temp_data = [(e.get("models", {}).get(model, {}) or {}).get("temp") for e in flat]
+        wind_data = [(e.get("models", {}).get(model, {}) or {}).get("wind") for e in flat]
+        temp_datasets.append(
+            {
+                "label": f"{model}",
+                "data": temp_data,
+                "borderColor": color,
+                "backgroundColor": "transparent",
+                "tension": 0.35,
+                "yAxisID": "yTemp",
+                "pointRadius": 5,
+                "pointHoverRadius": 7,
+            }
+        )
+        wind_datasets.append(
+            {
+                "label": f"{model}",
+                "data": wind_data,
+                "borderColor": color,
+                "backgroundColor": "transparent",
+                "tension": 0.35,
+                "borderDash": [6, 3],
+                "yAxisID": "yWind",
+                "pointRadius": 4,
+                "pointStyle": "rectRot",
+                "pointHoverRadius": 6,
+            }
+        )
 
     return labels, cloud_datasets, temp_datasets, wind_datasets, day_boundaries
 
 
 def _location_section(location_report: Dict[str, Any], idx: int) -> str:
-    name = location_report.get("location", "Unknown")
+    """Render a location's charts with its label escaped as HTML text.
+
+    Parameters
+    ----------
+    location_report : dict
+        Processed location and hourly forecast values.
+    idx : int
+        Unique chart identifier within the report.
+
+    Returns
+    -------
+    str
+        Location section and inline chart initialization.
+    """
+    name = escape(str(location_report.get("location", "Unknown")))
     days = location_report.get("days", [])
 
     if not days:
         return (
             f'<section class="loc">'
-            f'<h2>{name}</h2>'
+            f"<h2>{name}</h2>"
             f'<p class="empty">No qualifying hours in forecast window.</p>'
-            f'</section>'
+            f"</section>"
         )
 
     labels, cloud_ds, temp_ds, wind_ds, boundaries = _build_datasets(location_report)
 
-    lj  = json.dumps(labels,      ensure_ascii=False)
-    cdj = json.dumps(cloud_ds,    ensure_ascii=False)
-    tdj = json.dumps(temp_ds,     ensure_ascii=False)
-    wdj = json.dumps(wind_ds,     ensure_ascii=False)
-    bj  = json.dumps(boundaries)
+    lj = _script_json(labels)
+    cdj = _script_json(cloud_ds)
+    tdj = _script_json(temp_ds)
+    wdj = _script_json(wind_ds)
+    bj = _script_json(boundaries)
 
     cid = f"cc{idx}"
     tid = f"tw{idx}"
@@ -255,48 +309,64 @@ def _location_section(location_report: Dict[str, Any], idx: int) -> str:
 
 _LABEL_COLORS = {
     "Excellent": ("#a6e3a1", "#1e3a2f"),
-    "Good":      ("#89b4fa", "#1a2840"),
-    "Fair":      ("#f9e2af", "#3a3010"),
-    "Poor":      ("#f38ba8", "#3a1020"),
+    "Good": ("#89b4fa", "#1a2840"),
+    "Fair": ("#f9e2af", "#3a3010"),
+    "Poor": ("#f38ba8", "#3a1020"),
 }
 
 
 def _recommendation_banner(ranked: List[Dict[str, Any]]) -> str:
+    """Render escaped location names in the recommendation banner.
+
+    Parameters
+    ----------
+    ranked : list of dict
+        Ranked weather recommendation records.
+
+    Returns
+    -------
+    str
+        Banner HTML, or an empty string for no recommendations.
+    """
     if not ranked:
         return ""
     best = ranked[0]
     label = best["label"]
     fg, bg = _LABEL_COLORS.get(label, ("#cdd6f4", "#313244"))
 
-    rows = "".join(
-        f"<tr{'style=\"opacity:.55\"' if i > 0 else ''}>"
-        f"<td>{r['date']}</td>"
-        f"<td>{r['location']}</td>"
-        f"<td>{r['cloud']:.0f}%</td>"
-        f"<td>{r['wind']:.1f} m/s</td>"
-        f"<td><span class=\"badge\" style=\"background:{_LABEL_COLORS.get(r['label'],('','#313244'))[1]};color:{_LABEL_COLORS.get(r['label'],('#cdd6f4',''))[0]}\">{r['label']}</span></td>"
-        f"</tr>"
-        for i, r in enumerate(ranked[:5])
-    )
+    rows = []
+    for i, r in enumerate(ranked[:5]):
+        row_style = ' style="opacity:.55"' if i > 0 else ""
+        row_fg, row_bg = _LABEL_COLORS.get(r["label"], ("#cdd6f4", "#313244"))
+        rows.append(
+            f"<tr{row_style}>"
+            f"<td>{escape(str(r['date']))}</td>"
+            f"<td>{escape(str(r['location']))}</td>"
+            f"<td>{r['cloud']:.0f}%</td>"
+            f"<td>{r['wind']:.1f} m/s</td>"
+            f'<td><span class="badge" style="background:{row_bg};color:{row_fg}">{escape(str(r["label"]))}</span></td>'
+            "</tr>"
+        )
+    row_html = "".join(rows)
 
     return f"""<div class="rec-box" style="background:{bg};border:1px solid {fg}22;">
   <div class="rec-header">
     <span class="rec-star">★</span>
     <span class="rec-title">Best night for stargazing</span>
-    <span class="rec-badge" style="background:{fg};color:{bg}">{label}</span>
+    <span class="rec-badge" style="background:{fg};color:{bg}">{escape(str(label))}</span>
   </div>
   <div class="rec-best">
-    <span class="rec-loc">{best['location']}</span>
+    <span class="rec-loc">{escape(str(best["location"]))}</span>
     <span class="rec-sep">·</span>
-    <span class="rec-date">{best['date']}</span>
+    <span class="rec-date">{escape(str(best["date"]))}</span>
     <span class="rec-sep">·</span>
-    <span class="rec-detail">☁ {best['cloud']:.0f}% cloud · 💨 {best['wind']:.1f} m/s wind</span>
+    <span class="rec-detail">☁ {best["cloud"]:.0f}% cloud · 💨 {best["wind"]:.1f} m/s wind</span>
   </div>
   <details class="rec-all">
     <summary>All nights ranked</summary>
     <table class="rank-table">
       <thead><tr><th>Date</th><th>Location</th><th>Cloud</th><th>Wind</th><th>Rating</th></tr></thead>
-      <tbody>{rows}</tbody>
+      <tbody>{row_html}</tbody>
     </table>
   </details>
 </div>"""
@@ -307,13 +377,26 @@ def render_html(
     header: Optional[str] = None,
     ranked_nights: Optional[List[Dict[str, Any]]] = None,
 ) -> str:
-    """Return a complete HTML document as a string."""
-    generated = datetime.now().strftime("%Y-%m-%d %H:%M")
-    title = header or f"Night-Hour Weather Report — {generated}"
+    """Return a complete report with escaped title and location labels.
 
-    sections = "\n".join(
-        _location_section(r, i) for i, r in enumerate(location_reports)
-    )
+    Parameters
+    ----------
+    location_reports : list of dict
+        Processed location reports used for chart data.
+    header : str or None, optional
+        Document title; defaults to the current report timestamp.
+    ranked_nights : list of dict or None, optional
+        Existing compatibility argument for ranked recommendations.
+
+    Returns
+    -------
+    str
+        Complete HTML document.
+    """
+    generated = datetime.now().strftime("%Y-%m-%d %H:%M")
+    title = escape(str(header or f"Night-Hour Weather Report — {generated}"))
+
+    sections = "\n".join(_location_section(r, i) for i, r in enumerate(location_reports))
 
     return f"""<!DOCTYPE html>
 <html lang="en">
@@ -382,6 +465,7 @@ def screenshot_html(html: str, width: int = 1300) -> bytes:
     """
     import os
     import tempfile
+
     from playwright.sync_api import sync_playwright
 
     with tempfile.NamedTemporaryFile(
@@ -392,11 +476,13 @@ def screenshot_html(html: str, width: int = 1300) -> bytes:
 
     try:
         with sync_playwright() as p:
-            browser = p.chromium.launch(args=[
-                "--no-sandbox",
-                "--disable-gpu",
-                "--disable-dev-shm-usage",
-            ])
+            browser = p.chromium.launch(
+                args=[
+                    "--no-sandbox",
+                    "--disable-gpu",
+                    "--disable-dev-shm-usage",
+                ]
+            )
             page = browser.new_page(viewport={"width": width, "height": 900})
             page.goto(f"file:///{tmp.replace(os.sep, '/')}")
             page.wait_for_load_state("networkidle", timeout=20_000)

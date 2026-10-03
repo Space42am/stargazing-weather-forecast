@@ -1,0 +1,42 @@
+services:
+  weather:
+    build:
+      context: ..
+    init: true
+    restart: unless-stopped
+    env_file:
+      - ../.env
+    environment:
+      WEATHER_DB_PATH: /data/monitors.sqlite
+      WEATHER_TIMEZONE: Asia/Yerevan
+      TZ: Asia/Yerevan
+    volumes:
+      - weather-data:/data
+    mem_limit: 3g
+    shm_size: 256mb
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/healthz', timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    environment:
+      WEATHER_HOSTNAME: ${WEATHER_HOSTNAME:?Set the HTTPS hostname in .env}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      weather:
+        condition: service_healthy
+volumes:
+  weather-data:
+  caddy-data:
+  caddy-config:
