@@ -69,7 +69,11 @@ IMGBB_API_KEY=...
 
 ### 3. Google Sheet
 
-The bot reads locations from a Google Sheet. Set your sheet ID in `locations.py`.  
+The bot reads locations from a Google Sheet.
+Use `WEATHER_SPREADSHEET_ID` and `WEATHER_SHEET_GID` to select a different spreadsheet or tab.
+By default, the existing public CSV export must be readable without signing in.
+For a private Sheet, configure `GOOGLE_SERVICE_ACCOUNT_JSON` and share the Sheet with that account as **Viewer**.
+See [private Sheet setup](docs/oracle-deployment.md#read-a-private-google-sheet).
 The sheet must have:
 
 | Column | Index | Content |

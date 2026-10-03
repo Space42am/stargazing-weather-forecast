@@ -28,6 +28,20 @@ The existing Sheet and tab remain the defaults.
 `WEATHER_SHEET_ENABLED=true` schedules fresh Sheet reports daily at `WEATHER_SHEET_HOUR=9`, in `WEATHER_TIMEZONE=Asia/Yerevan`.
 Marvin monitors deliver to their originating Slack channel and do not modify the Sheet.
 
+### Read a Private Google Sheet
+
+Leave `GOOGLE_SERVICE_ACCOUNT_JSON` empty to retain the public CSV export.
+If the Sheet requires sign-in, enable the Google Sheets API in the service account's Google Cloud project and share the spreadsheet with the account's `client_email` as **Viewer**.
+Project IAM roles and public-link sharing are not required for this reader.
+Supply the complete service-account credential JSON as the protected `GOOGLE_SERVICE_ACCOUNT_JSON` runtime environment value.
+For a dotenv file, use compact single-line JSON inside single quotes; keep the private key's newline characters escaped as `\n` within the JSON string.
+Keep the credential in your secret store and the untracked, permission-restricted runtime configuration.
+
+The reader requests only the [Sheets read-only scope](https://developers.google.com/workspace/sheets/api/reference/rest/v4/spreadsheets.values/get#authorization-scopes).
+It finds the configured tab by `WEATHER_SHEET_GID`, reads formatted values from columns I:M, and retains the existing column I/L/M date and location parsing.
+It never updates the Sheet.
+An access-denied error requires checking the Viewer share and whether the Google Sheets API is enabled; malformed credentials require replacing the protected JSON value.
+
 ## Start and Verify
 
 ```bash

@@ -6,12 +6,14 @@ Fetches registered locations from a Google Sheet and geocodes them to coordinate
 
 import csv
 import math
+import os
 import time
 from typing import Any, Dict, List, Optional
 
 import requests
 
 from config import WEATHER_SHEET_GID, WEATHER_SPREADSHEET_ID
+from sheet_reader import SheetReadError, read_private_sheet_rows
 
 # Google Sheets configuration
 SPREADSHEET_ID = WEATHER_SPREADSHEET_ID
@@ -85,36 +87,36 @@ def geocode_location(location_name: str, province_name: str = "") -> Optional[Di
 
 
 def fetch_locations_from_sheet() -> List[Dict[str, Any]]:
-    """
-    Fetch locations from Google Sheets CSV export.
+    """Fetch public CSV or authenticated rows and retain existing location parsing.
 
-    Reads column L (index 11) starting from row 2, geocodes each location,
-    and returns list of location dictionaries.
+    Returns
+    -------
+    list of dict
+        Geocoded column L/M locations with column I visit periods.
 
-    Note: The Google Sheet must be publicly viewable for this to work.
-    Go to File > Share > 'Anyone with the link can view'.
+    Raises
+    ------
+    LocationError
+        If the Sheet cannot be read or parsed.
     """
     locations = []
 
     try:
         print("Fetching locations from Google Sheet...")
-        print(f"URL: {CSV_URL}")
-
-        # Try with various headers to bypass potential access restrictions
-        headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
-
-        print(f"Headers: {headers}")
-        response = requests.get(CSV_URL, timeout=10, headers=headers, allow_redirects=True)
-        print(f"Response status: {response.status_code}")
-        response.raise_for_status()
-
-        # Decode with UTF-8 to handle Armenian characters properly
-        csv_text = response.content.decode("utf-8")
-        print(f"Decoded {len(csv_text)} characters")
-
-        # Parse CSV
-        csv_reader = csv.reader(csv_text.splitlines())
-        rows = list(csv_reader)
+        credential_json = os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON", "")
+        if credential_json:
+            rows = read_private_sheet_rows(SPREADSHEET_ID, SHEET_GID, credential_json)
+        else:
+            print(f"URL: {CSV_URL}")
+            # Preserve the existing public CSV transport and decoding behavior.
+            headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
+            print(f"Headers: {headers}")
+            response = requests.get(CSV_URL, timeout=10, headers=headers, allow_redirects=True)
+            print(f"Response status: {response.status_code}")
+            response.raise_for_status()
+            csv_text = response.content.decode("utf-8")
+            print(f"Decoded {len(csv_text)} characters")
+            rows = list(csv.reader(csv_text.splitlines()))
 
         if len(rows) < LOCATION_START_ROW:
             raise LocationError(
@@ -161,6 +163,8 @@ def fetch_locations_from_sheet() -> List[Dict[str, Any]]:
 
         print(f"Successfully loaded {len(locations)} locations from sheet")
 
+    except SheetReadError as exc:
+        raise LocationError(str(exc)) from None
     except requests.HTTPError as exc:
         if exc.response.status_code == 404:
             raise LocationError(
